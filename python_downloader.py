@@ -8,10 +8,10 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def get_real_url(share_text):
-    url_pattern = re.compile(r'https?://v\.douyin\.com/[a-zA-Z0-9_]+/')
+    url_pattern = re.compile(r'https?://v\.douyin\.com/[a-zA-Z0-9_-]+/')
     match = url_pattern.search(share_text)
     if not match:
-        print("No Douyin URL found in text")
+        print("No URL found in text")
         return None
     return match.group(0)
     
@@ -53,24 +53,51 @@ def get_page_response(session, url):
 def parse_img_list(body):
     content = body.replace(r'\u002F', '/').replace('/', '/')    
     
-    reg = re.compile(r'{"uri":"[^\s"]+","url_list":\["(https://p\d{1,2}-sign\.douyinpic\.com/[^"]+)"')
+    # Match the url_list content to capture all links
+    # First, try to locate the 'images' array to narrow down the scope
+    images_content = content
+
+    start_idx = content.find('"images":[')
+
+    if start_idx != -1:
+        # Simple bracket counting to extract the array content
+        count = 1
+        search_start = start_idx + 10 
+        for i in range(search_start, len(content)):
+            if content[i] == '[':
+                count += 1
+            elif content[i] == ']':
+                count -= 1
+            if count == 0:
+                images_content = content[start_idx:i+1]
+                break
+
+    list_reg = re.compile(r'\{"uri":"[^\s"]+","url_list":\[([^\]]*)\]')
+
+    lists = list_reg.findall(images_content)
     
+    first_urls = []
+    
+    url_item_reg = re.compile(r'"(https://p\d{1,2}-sign\.douyinpic\.com/[^"]+)"')
+    
+    for l in lists:
+        first_urls.extend(url_item_reg.findall(l))
+
+    first_urls = [url for url in first_urls if "shrink" not in url]
+
     url_ret = re.compile(r'"uri":"([^\s"]+)","url_list":')
-    
-    first_urls = reg.findall(content)
     
     uris = url_ret.findall(content)
     
     uri_set = set(uris)
-    
+
     r_list = []
-    for uri in uri_set:
-        
+
+    for uri in uri_set:        
         for url in first_urls:
             if uri in url:
                 r_list.append(url)
                 break
-    
     
     filtered_r_list = [url for url in r_list if "/obj/" not in url]
     
