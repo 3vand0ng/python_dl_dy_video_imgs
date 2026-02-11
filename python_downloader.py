@@ -54,6 +54,15 @@ def get_page_response(session, url):
     return response
 
 
+def save_history(url):
+    file_path = "history.md"
+    try:
+        with open(file_path, "a", encoding="utf-8") as f:
+            f.write(f"{url}\n")
+    except Exception as e:
+        print(f"Error saving history: {e}")
+
+
 def parse_img_list(body):
     content = body.replace(r"\u002F", "/").replace("/", "/")
 
@@ -208,6 +217,8 @@ def download_fn(share_text):
             print(f"Failed to retrieve page. Status: {page_resp.status_code}")
             return
 
+        clean_url = page_resp.url.split('?')[0]
+        save_history(clean_url)
         # 2. Identify media type and ID
         media_id, media_type = get_media_info(page_resp.url, page_resp.text)
 
